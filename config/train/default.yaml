@@ -1,0 +1,6 @@
+
+path_type:  Linear      #group.add_argument("--path-type", type=str, default="Linear", choices=["Linear", "GVP", "VP"])
+prediction: velocity    #group.add_argument("--prediction", type=str, default="velocity", choices=["velocity", "score", "noise"])
+loss_weight: null       #group.add_argument("--loss-weight", type=none_or_str, default=None, choices=[None, "velocity", "likelihood"])
+sample_eps:             #group.add_argument("--sample-eps", type=float)
+train_eps:              #group.add_argument("--train-eps", type=float)

@@ -1,0 +1,15 @@
+name: 3d_zigzag8sst_b2
+target: model_zigma.ZigMa
+params:
+    img_dim: 32
+    in_channels: 4
+    patch_size: 2
+    num_classes: 101
+    embed_dim: 768
+    depth: 24 
+    video_frames: ${data.video_frames}
+    scan_type: video_sst
+    use_pe: 2 # 0: no positional encoding, 1: fixed positional encoding, 2: learned positional encoding
+    
+    
+

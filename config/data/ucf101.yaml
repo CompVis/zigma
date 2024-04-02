@@ -1,0 +1,37 @@
+name: ucf101
+
+train_steps: 400_000
+sample_vis_n: 1
+
+batch_size: 20
+image_size: 256
+num_classes: 101
+
+sample_fid_n: 5_000
+sample_fid_every: 20_000
+sample_fid_bs: 4
+
+
+video_frames: 16
+tar_base: /export/storage/tao/ucf101_downloaded/wds 
+val_batch_size: 8
+num_workers: 1
+val_num_workers: 3 # this has to match #shards % (#gpu * #workers) == 0
+multinode: True
+is_video: True 
+train:
+  shards: 'train-{000000..000139}.tar'
+  #image_key: video.npy
+  rename:
+    #video: video.npy
+    frame_feature256: frame_feature256.npy
+    cls_id: cls_id.cls
+    cls_name: cls_name.json
+validation:
+  shards: 'train-{000000..000020}.tar'
+  #image_key: video.npy
+  rename:
+    #video: video.npy
+    frame_feature256: frame_feature256.npy
+    cls_id: cls_id.cls
+    cls_name: cls_name.json

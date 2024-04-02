@@ -1,0 +1,10 @@
+video_metrics/fvd/styleganv/i3d_torchscript.pt
+video_metrics/fvd/videogpt/i3d_pretrained_400.pt
+outputs/
+*.pyc
+__pycache__
+wandb
+checkpoints
+samples/
+example_2d.png
+peano_curve.png
