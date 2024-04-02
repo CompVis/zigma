@@ -129,6 +129,11 @@ Please cite our paper:
 }
 ```
 
+## Trend
+
+[![Star History Chart](https://api.star-history.com/svg?repos=CompVis/zigma&type=Date)](https://star-history.com/#CompVis/zigma&Date)
+
+
 ## 🎫 License
 
 This work is licensed under the Apache License, Version 2.0 (as defined in the [LICENSE](LICENSE.txt)).
