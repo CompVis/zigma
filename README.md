@@ -98,8 +98,8 @@ pip install  torchdiffeq  matplotlib h5py timm diffusers accelerate loguru blobf
 pip install hydra-core opencv-python torch-fidelity webdataset einops pytorch_lightning
 pip install torchmetrics --upgrade
 pip install opencv-python causal-conv1d
-cd dis_mamba && pip install -e . && cd ..
 cd dis_causal_conv1d && pip install -e . && cd ..
+cd dis_mamba && pip install -e . && cd ..
 pip install moviepy imageio #wandb.Video() need it
 pip install  scikit-learn --upgrade 
 pip install transformers==4.36.2
