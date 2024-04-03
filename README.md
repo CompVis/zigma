@@ -23,6 +23,20 @@ We present ZigMa, a scanning scheme that follows a zigzag pattern, considering b
 ![teaser](doc/teaser_3col.png)
 
 
+## 🎓 Citation
+
+Please cite our paper:
+
+```bibtex
+@InProceedings{hu2024zigma,
+      title={ZigMa: A DiT-style Zigzag Mamba Diffusion Model},
+      author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Fischer and Bjorn Ommer},
+      booktitle = {Arxiv},
+      year={2024}
+}
+```
+
+
 ## :white_check_mark: Updates
 * **` April. 2th, 2024`**: Main code released.
 
@@ -115,19 +129,6 @@ UCF101
 
 
 
-
-## 🎓 Citation
-
-Please cite our paper:
-
-```bibtex
-@InProceedings{hu2024zigma,
-      title={ZigMa: A DiT-style Zigzag Mamba Diffusion Model},
-      author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Fischer and Bjorn Ommer},
-      booktitle = {Arxiv},
-      year={2024}
-}
-```
 
 ## Trend
 
