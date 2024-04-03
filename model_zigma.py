@@ -21,14 +21,9 @@ from einops import rearrange, repeat
 from inspect import isfunction
 from torch import Tensor
 from typing import Optional
-
+import einops
 
 from utils.utils_zigzag import reverse_permut_np, zigzag_path, hilbert_path
-
-try:
-    from dis_mamba.mamba_ssm.ops.triton.layernorm import RMSNorm
-except ImportError:
-    RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 
 import torch
@@ -39,6 +34,19 @@ from functools import partial
 from timm.models.vision_transformer import Mlp
 from dis_mamba.mamba_ssm.modules.mamba_simple import Mamba
 from dis_mamba.mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
+
+
+if hasattr(torch.nn.functional, "scaled_dot_product_attention"):
+    ATTENTION_MODE = "flash"
+else:
+    try:
+        import xformers
+        import xformers.ops
+
+        ATTENTION_MODE = "xformers"
+    except:
+        ATTENTION_MODE = "math"
+print(f"attention mode is {ATTENTION_MODE}")
 
 
 def modulate(x, shift, scale):
@@ -101,29 +109,29 @@ class CrossAttention(nn.Module):
         )
 
     def forward(self, x, text, mask=None):
-        h = self.heads
-
+        B, L, C = x.shape
         q = self.to_q(x)
         # text = default(text, x)
         k = self.to_k(text)
         v = self.to_v(text)
 
-        q, k, v = map(lambda t: rearrange(t, "b n (h d) -> (b h) n d", h=h), (q, k, v))
-
-        sim = einsum("b i d, b j d -> b i j", q, k) * self.scale
-
-        if exists(mask):
-            mask = rearrange(mask, "b ... -> b (...)")
-            max_neg_value = -torch.finfo(sim.dtype).max
-            mask = repeat(mask, "b j -> (b h) () j", h=h)
-            sim.masked_fill_(~mask, max_neg_value)
-
-        # attention, what we cannot get enough of
-        attn = sim.softmax(dim=-1)
-
-        out = einsum("b i j, b j d -> b i d", attn, v)
-        out = rearrange(out, "(b h) n d -> b n (h d)", h=h)
-        return self.to_out(out)
+        q, k, v = map(
+            lambda t: rearrange(t, "B L (H D) -> B H L D", H=self.heads), (q, k, v)
+        )  # B H L D
+        if ATTENTION_MODE == "flash":
+            x = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+            x = einops.rearrange(x, "B H L D -> B L (H D)")
+        elif ATTENTION_MODE == "xformers":
+            x = xformers.ops.memory_efficient_attention(q, k, v)
+            x = einops.rearrange(x, "B L H D -> B L (H D)", H=self.heads)
+        elif ATTENTION_MODE == "math":
+            attn = (q @ k.transpose(-2, -1)) * self.scale
+            attn = attn.softmax(dim=-1)
+            attn = self.attn_drop(attn)
+            x = (attn @ v).transpose(1, 2).reshape(B, L, C)
+        else:
+            raise NotImplemented
+        return self.to_out(x)
 
 
 def drop_path(
@@ -444,7 +452,7 @@ class Block(nn.Module):
             x = x + gate_msa.unsqueeze(1) * self.msa(
                 modulate(self.norm_msa(x), shift_msa, scale_msa),
                 text=text,
-                mask=None,
+                mask=None,  #
             )
 
         return x, residual
@@ -645,45 +653,47 @@ class ZigMa(nn.Module):
         self.extras = 0
         block_kwargs = {}
         print("scan_type", scan_type)
-        if scan_type.startswith("zigzagN"):
-            _zz_paths = zigzag_path(N=int(math.sqrt(num_patches)))
+        patch_side_len = int(math.sqrt(num_patches))
+        if (
+            scan_type.startswith("zigzagN")
+            or scan_type.startswith("hilbertN")
+            or scan_type.startswith("randomN")
+        ):
             if scan_type.startswith("zigzagN"):
-                zigzag_num = int(scan_type.replace("zigzagN", ""))
-                zz_paths = _zz_paths[:zigzag_num]
-                assert len(zz_paths) == zigzag_num, f"{len(zz_paths)} != {zigzag_num}"
+                _zz_paths = zigzag_path(N=patch_side_len)
+                if scan_type.startswith("zigzagN"):
+                    zigzag_num = int(scan_type.replace("zigzagN", ""))
+                    zz_paths = _zz_paths[:zigzag_num]
+                    assert (
+                        len(zz_paths) == zigzag_num
+                    ), f"{len(zz_paths)} != {zigzag_num}"
+                else:
+                    raise ValueError("scan_type should be xx")
+            elif scan_type.startswith("hilbertN"):
+                _zz_paths = hilbert_path(N=patch_side_len)
+                if scan_type.startswith("hilbertN"):
+                    zigzag_num = int(scan_type.replace("hilbertN", ""))
+                    zz_paths = _zz_paths[:zigzag_num]
+                    assert (
+                        len(zz_paths) == zigzag_num
+                    ), f"{len(zz_paths)} != {zigzag_num}"
+                else:
+                    raise ValueError("scan_type should be xx")
+            elif scan_type.startswith("randomN"):
+                zigzag_num = int(scan_type.replace("randomN", ""))
+                zz_paths = []
+                for _ddd in range(zigzag_num):
+                    _tmp = np.array([_ for _ in range(patch_side_len**2)])
+                    np.random.shuffle(_tmp)
+                    print(_tmp)
+                    zz_paths.append(_tmp)
             else:
-                raise ValueError("scan_type should be xx")
+                raise ValueError("scan_type doenst match")
             print("zigzag_num", len(zz_paths))
             #############
             zz_paths_rev = [reverse_permut_np(_) for _ in zz_paths]
-            _repeat = 1 + depth // len(zz_paths)
-            zz_paths = zz_paths * _repeat
-            zz_paths_rev = zz_paths_rev * _repeat
-            zz_paths = [torch.from_numpy(_).to(device) for _ in zz_paths]
-            zz_paths_rev = [torch.from_numpy(_).to(device) for _ in zz_paths_rev]
-            assert len(zz_paths) == len(
-                zz_paths_rev
-            ), f"{len(zz_paths)} != {len(zz_paths_rev)}"
-            block_kwargs["zigzag_paths"] = zz_paths
-            block_kwargs["zigzag_paths_reverse"] = zz_paths_rev
-            block_kwargs["extras"] = self.extras
-            print("zigzag_paths length", len(zz_paths))
-        elif scan_type.startswith("hilbertN"):
-            _zz_paths = hilbert_path(N=int(math.sqrt(num_patches)))
-
-            if scan_type.startswith("hilbertN"):
-                zigzag_num = int(scan_type.replace("hilbertN", ""))
-                zz_paths = _zz_paths[:zigzag_num]
-                assert len(zz_paths) == zigzag_num, f"{len(zz_paths)} != {zigzag_num}"
-            else:
-                raise ValueError("scan_type should be xx")
-            #############
-            zz_paths_rev = [reverse_permut_np(_) for _ in zz_paths]
-            _repeat = 1 + depth // len(
-                zz_paths
-            )  # make sure the length of zigzag_paths is enough
-            zz_paths = zz_paths * _repeat
-            zz_paths_rev = zz_paths_rev * _repeat
+            zz_paths = zz_paths * depth
+            zz_paths_rev = zz_paths_rev * depth
             zz_paths = [torch.from_numpy(_).to(device) for _ in zz_paths]
             zz_paths_rev = [torch.from_numpy(_).to(device) for _ in zz_paths_rev]
             assert len(zz_paths) == len(
@@ -701,7 +711,7 @@ class ZigMa(nn.Module):
             st_order = st_order * depth
             print("st_order", st_order)
 
-            zz_paths = zigzag_path(N=int(math.sqrt(num_patches)))
+            zz_paths = zigzag_path(N=patch_side_len)
             zz_paths_rev = [reverse_permut_np(_) for _ in zz_paths]
             ####
             zz_paths = [torch.from_numpy(_).to(device) for _ in zz_paths]
@@ -738,6 +748,8 @@ class ZigMa(nn.Module):
             block_kwargs["video_frames"] = video_frames
             block_kwargs["st_order"] = st_order
             print("zigzag_paths length", len(zz_paths))
+        else:
+            raise ValueError("scan_type doesn't match")
 
         self.blocks = nn.ModuleList(
             [
@@ -1074,7 +1086,7 @@ if __name__ == "__main__":
             d_context=768,
             n_context_token=77,
             device="cuda",
-            scan_type="hilbert",
+            scan_type="randomN8",
             use_pe=2,
         )
 
@@ -1085,3 +1097,5 @@ if __name__ == "__main__":
         _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Param count: {_param_count}")
         print(o.shape)
+        # print(model)
+        print(model.final_layer.linear.weight.dtype)
