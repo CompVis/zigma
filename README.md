@@ -97,6 +97,7 @@ conda install pytorch torchvision  pytorch-cuda=11.8 -c pytorch -c nvidia
 pip install  torchdiffeq  matplotlib h5py timm diffusers accelerate loguru blobfile ml_collections
 pip install hydra-core opencv-python torch-fidelity webdataset einops pytorch_lightning
 pip install torchmetrics --upgrade
+pip install opencv-python causal-conv1d
 cd dis_mamba && pip install -e . && cd ..
 cd dis_causal_conv1d && pip install -e . && cd ..
 pip install moviepy imageio #wandb.Video() need it
