@@ -87,26 +87,23 @@ CUDA_VISIBLE_DEVICES="2" accelerate launch  --num_processes 1 --num_machines 1 -
 
 ##  🛠️  Environment Preparation
 
+cuda==11.8,python==3.12.1, torch==2.2.0
+
 ```bash
-conda env create -f environment.yml
+conda create -n zigma python=3.12
 conda activate zigma
-pip install hydra-core
-pip install torchmetrics --upgrade
-pip install torch-fidelity webdataset einops pytorch_lightning
-pip install opencv-python
-cd dis_mamba && pip install -e .
-cd dis_causal_conv1d && pip install -e . 
-pip install moviepy imageio #wandb.Video() need it
-pip install webdataset==0.2.86 # to use the wids features 
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
 conda install pytorch torchvision  pytorch-cuda=11.8 -c pytorch -c nvidia
-pip install  torchdiffeq  matplotlib h5py timm diffusers accelerate loguru blobfile 
-pip install hydra-core wandb einops scikit-learn --upgrade
-pip install einops scikit-learn  webdataset ml_collections einops 
+pip install  torchdiffeq  matplotlib h5py timm diffusers accelerate loguru blobfile ml_collections
+pip install hydra-core opencv-python torch-fidelity webdataset einops pytorch_lightning
+pip install torchmetrics --upgrade
+cd dis_mamba && pip install -e . && cd ..
+cd dis_causal_conv1d && pip install -e . && cd ..
+pip install moviepy imageio #wandb.Video() need it
+pip install  scikit-learn --upgrade 
 pip install transformers==4.36.2
-pip install numpy-hilbert-curve # for generating the hilbert path
-pip install opencv-python
-pip install av    # to use the ucf101 frame extracting
+pip install numpy-hilbert-curve # (optional) for generating the hilbert path
+pip install av    # (optional)  to use the ucf101 frame extracting
 pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers  #for FDD metrics
 ```
 
@@ -118,6 +115,9 @@ entity: YOUR_ENTITY
 project: YOUR_PROJECT_NAME
 ```
 
+## Q&A
+
+- If you meeet some issues for installing ssm, maybe you can find solution here: [https://github.com/state-spaces/mamba/issues](https://github.com/state-spaces/mamba/issues)
 
 ## 📷  Dataset Preparation
 
