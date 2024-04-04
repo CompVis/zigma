@@ -11,8 +11,9 @@ import torch.nn.functional as F
 
 
 class MyMetric:
-    def __init__(self, device="cuda", choices=["fid"]):
+    def __init__(self, device="cuda", choices=["fid"], video_frame=None):
         self.choices = choices
+        self.device = device
         if "fid" in choices:
             self._fid = FrechetInceptionDistance(
                 feature=2048,
@@ -31,55 +32,41 @@ class MyMetric:
         if "fdd" in choices:
             self._fdd = FrechetDinovDistance().to(device)
         if "fvd" in choices:
-            self._fvd = FrechetVideoDistance().to(device)
+            self._fvd = FrechetVideoDistance()
+            self.video_frame = video_frame
+            assert video_frame is not None, "video_frame is None"
 
-    def update_real(self, data):
-        if "fid" in self.choices:
-            self._fid.update(data, real=True)
+    def update_real(self, data, real=True):
+        self.update_fake_and_real(data, real)
+
+    def update_fake(self, data, real=False):
         if "is" in self.choices:
             self._is.update(data)
-        if "kid" in self.choices:
-            self._kid.update(data, real=True)
-        if "prdc" in self.choices:
-            self._prdc.update(data, real=True)
-        if "sfid" in self.choices:
-            self._sfid.update(data, real=True)
-        if "fdd" in self.choices:
-            self._fdd.update(data, real=True)
-        if "fvd" in self.choices:
-            assert isinstance(data, torch.Tensor) and data.dtype == torch.uint8
-            # data is a torch.Tensor of type uint8
-            # data = (rearrange(data, "b t c h w -> b t h w c") / 255.0 - 0.5) * 2
-            b, t, c, h, w = data.shape
-            data = rearrange(data, "b t c h w -> (b t) c h w").float()
-            data = F.interpolate(
-                data, size=(224, 224), mode="bilinear", align_corners=False
-            )
-            data = rearrange(data, "(b t) c h w -> b t h w c", t=t).float()
-            self._fvd.update(data, real=False)
+        self.update_fake_and_real(data, real)
 
-    def update_fake(self, data):
+    def update_fake_and_real(self, data, real):
         if "fid" in self.choices:
-            self._fid.update(data, real=False)
+            self._fid.update(data, real=real)
         if "kid" in self.choices:
-            self._kid.update(data, real=False)
+            self._kid.update(data, real=real)
         if "prdc" in self.choices:
-            self._prdc.update(data, real=False)
+            self._prdc.update(data, real=real)
         if "sfid" in self.choices:
-            self._sfid.update(data, real=False)
+            self._sfid.update(data, real=real)
         if "fdd" in self.choices:
-            self._fdd.update(data, real=False)
+            self._fdd.update(data, real=real)
         if "fvd" in self.choices:
             assert isinstance(data, torch.Tensor) and data.dtype == torch.uint8
             # data is a torch.Tensor of type uint8
             # data = (rearrange(data, "b t c h w -> b t h w c") / 255.0 - 0.5) * 2
+            data = rearrange(data, "(b t) c h w -> b t c h w", t=self.video_frame)
             b, t, c, h, w = data.shape
             data = rearrange(data, "b t c h w -> (b t) c h w").float()
             data = F.interpolate(
                 data, size=(224, 224), mode="bilinear", align_corners=False
             )
             data = rearrange(data, "(b t) c h w -> b t h w c", t=t).float()
-            self._fvd.update(data, real=False)
+            self._fvd.update(data.to(self.device), real=real)
 
     def compute(self):
         print("computing torchmetrics...")

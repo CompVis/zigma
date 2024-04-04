@@ -5,6 +5,7 @@
 """
 import random
 import shutil
+from einops import rearrange
 from omegaconf import OmegaConf
 from datasets.wds_dataloader import WebDataModuleFromConfig
 import torch
@@ -56,11 +57,7 @@ def update_note(args, accelerator, slurm_job_id):
         + f"_wd{args.optim.wd}"
         + f"_{accelerator.state.num_processes}g"
         + f"_{slurm_job_id}"
-    )  # v2, DIS, has_text, using cross-attention now
-    # v3, fix disditInit bugs
-    # "v3disditInit"
-    # v4 autocast=False in acclerator
-    # v5 final run
+    )
 
     return args.note
 
@@ -123,7 +120,9 @@ def main(args):
         # https://github.com/huggingface/accelerate/issues/2487#issuecomment-1969997224
     else:
         kwargs = {}
-    accelerator = accelerate.Accelerator(kwargs_handlers=[kwargs])
+    accelerator = accelerate.Accelerator(
+        kwargs_handlers=[kwargs], mixed_precision=args.mixed_precision
+    )
     device = accelerator.device
     accelerate.utils.set_seed(args.global_seed, device_specific=True)
     rank = accelerator.state.process_index
@@ -233,7 +232,7 @@ def main(args):
         if has_text(args):
             image_model_id = "runwayml/stable-diffusion-v1-5"
             pipe = StableDiffusionPipeline.from_pretrained(
-                image_model_id, local_files_only=True
+                image_model_id, local_files_only=False
             )
             vae = pipe.vae.to("cuda")
             vae.eval()
@@ -251,6 +250,7 @@ def main(args):
 
     loader, opt, model, ema_model = accelerator.prepare(loader, opt, model, ema_model)
 
+    print("dtype:", model.final_layer.linear.weight.dtype)
     if args.ckpt is not None:
         args.ckpt = get_max_ckpt_from_dir(args.ckpt)
 
@@ -397,11 +397,14 @@ def main(args):
     real_img_dg = get_real_img_generator()
     cap_dg = get_cap_generator()
 
-    if is_video(args) and False:
-        _metric_choices = ["fid", "fvd"]
+    my_metric_kwargs = dict()
+    if is_video(args):
+        my_metric_kwargs = dict(
+            choices=["fid", "fvd"], video_frame=args.model.params.video_frames
+        )
     else:
-        _metric_choices = ["fid", "is", "kid", "prdc", "sfid", "fdd"]
-    my_metric = MyMetric(choices=_metric_choices)
+        my_metric_kwargs = dict(choices=["fid", "is", "kid", "prdc", "sfid", "fdd"])
+    my_metric = MyMetric(**my_metric_kwargs)
 
     if True:
         gt_recovered = next(real_img_dg)
@@ -504,8 +507,9 @@ def main(args):
                 if is_video(args):
                     for _ in range(args.data.sample_fid_n // local_bs):
                         _d = next(real_img_dg)
-                        for _ in range(_d.shape[1]):
-                            my_metric.update_real(_d[:, _])
+                        # for _ in range(_d.shape[1]):
+                        _d = rearrange(_d, "b t c h w -> (b t) c h w")
+                        my_metric.update_real(_d)
 
                 else:
                     [
@@ -567,9 +571,12 @@ def main(args):
                             vis_sample_t2i_cap = sam_caps
                             vis_sample_t2i_img = samples.contiguous()
                     if is_video(args):
-                        _int = out_sample_global
-                        for _ in range(_int.shape[1]):
-                            my_metric.update_fake(_int[:, _])
+                        my_metric.update_fake(
+                            rearrange(
+                                out_sample_global,
+                                "b t c h w -> (b t) c h w",
+                            )
+                        )
                     else:
                         my_metric.update_fake(out_sample_global)
                     del out_sample_global, samples, _zs
