@@ -6,7 +6,8 @@ This repository represents the official implementation of the paper titled "ZigM
 
 [![Website](doc/badges/badge-website.svg)](https://taohu.me/zigma)
 [![Paper](https://img.shields.io/badge/arXiv-PDF-b31b1b)](https://arxiv.orgg)
-[![Hugging Face Model](https://img.shields.io/badge/🤗%20Hugging%20Face-Model-green)](https://huggingface.co/Bingxin/Marigold)
+[![Hugging Face Model](https://img.shields.io/badge/🤗%20Hugging%20Face-Model-green)](https://huggingface.co/taohu/zigma_faceshq1024)
+[![GitHub](https://img.shields.io/github/stars/CompVis/zigma?style=social)](https://github.com/CompVis/zigma)
 [![License](https://img.shields.io/badge/License-Apache--2.0-929292)](https://www.apache.org/licenses/LICENSE-2.0)
 
 
