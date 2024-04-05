@@ -124,7 +124,8 @@ pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=
 ```
 
 
-Create a file under the directory wandb/default.yaml:
+Create a file under the directory ./config/wandb/default.yaml:
+
 ```yaml
 key: YOUR_WANDB_KEY
 entity: YOUR_ENTITY
