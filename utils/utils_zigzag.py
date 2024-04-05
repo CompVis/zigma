@@ -142,9 +142,6 @@ def reverse_permut_np(permutation):
 
 
 def zigzag_path(N):
-    print("zigzag_sub_v1", N)
-    assert N % 2 == 0, "N should be even"
-
     def zigzag_path_lr(N, start_row=0, start_col=0, dir_row=1, dir_col=1):
         path = []
         for i in range(N):
@@ -315,14 +312,14 @@ def draw_pineao_curve():
             dx /= 3
             dy /= 3
             peano_curve(level - 1, x, y, dx, dy)
-            peano_curve(level - 1, x, y + 2 * dy, dx, dy)
             peano_curve(level - 1, x + dx, y + dy, dx, dy)
-            peano_curve(level - 1, x + 2 * dx, y, dx, dy)
-            peano_curve(level - 1, x + 2 * dx, y + 2 * dy, dx, dy)
+            peano_curve(level - 1, x + 2 * dx, y + dy, dx, dy)
+            peano_curve(level - 1, x + dx, y + 2 * dy, dx, dy)
+            peano_curve(level - 1, x, y + 2 * dy, dx, dy)
 
     plt.figure(figsize=(6, 6))
     peano_curve(
-        1, 0, 0, 1, 1
+        3, 0, 0, 1, 1
     )  # Increase the first argument to increase the complexity of the curve
     plt.gca().invert_yaxis()  # Invert y axis to match the standard mathematical coordinate system
     plt.axis("off")  # Hide axes
