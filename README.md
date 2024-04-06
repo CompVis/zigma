@@ -6,7 +6,7 @@ This repository represents the official implementation of the paper titled "ZigM
 
 [![Website](doc/badges/badge-website.svg)](https://taohu.me/zigma)
 [![Paper](https://img.shields.io/badge/arXiv-PDF-b31b1b)](https://arxiv.org/abs/2403.13802)
-[![Hugging Face Model](https://img.shields.io/badge/🤗%20Hugging%20Face-Model-green)](https://huggingface.co/taohu/zigma_faceshq1024)
+[![Hugging Face Model](https://img.shields.io/badge/🤗%20Hugging%20Face-Model-green)](https://huggingface.co/taohu/zigma)
 [![GitHub](https://img.shields.io/github/stars/CompVis/zigma?style=social)](https://github.com/CompVis/zigma)
 [![License](https://img.shields.io/badge/License-Apache--2.0-929292)](https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -42,6 +42,37 @@ Please cite our paper:
 ## :white_check_mark: Updates
 * **` April. 6th, 2024`**: Support for FP16 training.
 * **` April. 2th, 2024`**: Main code released.
+
+
+## Quick Demo
+
+
+```python
+from model_zigma import ZigMa
+
+img_dim = 32
+in_channels = 3
+
+model = ZigMa(
+in_channels=in_channels,
+embed_dim=640,
+depth=18,
+img_dim=img_dim,
+patch_size=1,
+has_text=True,
+d_context=768,
+n_context_token=77,
+device="cuda",
+scan_type="zigzagN8",
+use_pe=2,
+)
+
+x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
+t = torch.rand(10).to("cuda")
+_context = torch.rand(10, 77, 768).to("cuda")
+o = model(x, t, y=_context)
+print(o.shape)
+```
 
 
 ## 🚀  Training
