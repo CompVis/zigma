@@ -114,12 +114,10 @@ def main(args):
     assert torch.cuda.is_available(), "Training currently requires at least one GPU."
     from accelerate.utils import AutocastKwargs
 
-    if True:
-        kwargs = AutocastKwargs(enabled=False)
-        # https://github.com/pytorch/pytorch/issues/40497#issuecomment-709846922
-        # https://github.com/huggingface/accelerate/issues/2487#issuecomment-1969997224
-    else:
-        kwargs = {}
+    kwargs = AutocastKwargs(enabled=True)
+    # https://github.com/pytorch/pytorch/issues/40497#issuecomment-709846922
+    # https://github.com/huggingface/accelerate/issues/2487#issuecomment-1969997224
+
     accelerator = accelerate.Accelerator(
         kwargs_handlers=[kwargs], mixed_precision=args.mixed_precision
     )
@@ -127,7 +125,7 @@ def main(args):
     accelerate.utils.set_seed(args.global_seed, device_specific=True)
     rank = accelerator.state.process_index
     logging.info(
-        f"Starting rank={rank}, world_size={accelerator.state.num_processes}, device={device}."
+        f"Starting rank={rank}, world_size={accelerator.state.num_processes}, accelerator.mixed_precision={accelerator.mixed_precision},device={device}."
     )
     is_multiprocess = True if accelerator.state.num_processes > 1 else False
     if accelerator.state.num_processes >= 4 * 8:
@@ -427,6 +425,7 @@ def main(args):
 
     while train_steps < args.data.train_steps:
         x, y = next(train_dg)
+
         x_img = x
         if args.is_latent:
             if args.use_latent:
@@ -436,11 +435,15 @@ def main(args):
                     x = vae.encode(x).latent_dist.sample().mul_(0.18215)
 
         model_kwargs = dict(y=y)
+        before_forward = torch.cuda.memory_allocated(device)
+
         loss_dict = transport.training_losses(model, x, model_kwargs)
         loss = loss_dict["loss"].mean()
+        after_forward = torch.cuda.memory_allocated(device)
         opt.zero_grad()
         accelerator.backward(loss)
         opt.step()
+        after_backward = torch.cuda.memory_allocated(device)
         grad_clip(opt, model, max_grad_norm=args.max_grad_norm)  # clip gradient
         update_ema(ema_model, model)
 
@@ -459,7 +462,7 @@ def main(args):
             avg_loss = avg_loss.item() / accelerator.state.num_processes
             if accelerator.is_main_process:
                 logging.info(
-                    f"(step={train_steps:07d}/{args.data.train_steps}), Best_FID: {best_fid}, Train Loss: {avg_loss:.4f}, BS-1GPU: {len(x_img)} Train Steps/Sec: {steps_per_sec:.2f}, slurm_job_id: {slurm_job_id} , {experiment_dir}"
+                    f"(step={train_steps:07d}/{args.data.train_steps}), Best_FID: {best_fid}, Train Loss: {avg_loss:.4f}, BS-1GPU: {len(x_img)} Train Steps/Sec: {steps_per_sec:.2f}, slurm_job_id: {slurm_job_id}, GPU Mem: {after_backward}, {experiment_dir}"
                 )
                 logging.info(wandb_sync_command)
                 latest_checkpoint = get_latest_checkpoint(checkpoint_dir)
@@ -473,6 +476,9 @@ def main(args):
                         "best_fid": best_fid,
                         "bs_1gpu": len(x_img),
                         "param_amount": _param_amount,
+                        "gpu_mem_before_forward": before_forward,
+                        "gpu_mem_after_forward": after_forward,
+                        "gpu_mem_after_backward": after_backward,
                     }
                     wandb.log(
                         wandb_dict,

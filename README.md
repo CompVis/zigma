@@ -40,6 +40,7 @@ Please cite our paper:
 
 
 ## :white_check_mark: Updates
+* **` April. 6th, 2024`**: Support for FP16 training.
 * **` April. 2th, 2024`**: Main code released.
 
 
