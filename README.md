@@ -47,7 +47,7 @@ Please cite our paper:
 
 
 ```python
-from zigma_model import ZigMa
+from model_zigma import ZigMa
 
 img_dim = 32
 in_channels = 3
