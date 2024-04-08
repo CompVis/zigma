@@ -77,10 +77,11 @@ print(o.shape)
 
 ### Improved Training Performance
 In comparison to the original implementation, we implement a selection of training speed acceleration and memory saving features including gradient checkpointing
-| gradient checkpointing | training speed | memory       |
-|:----------------------:|:------------------------:|:----------------------:|
-| ❌                    | 1.05 iters/sec             | 18G|
-| ✔                     |  0.93 steps/sec | 9G     |
+|torch.compile| gradient checkpointing | training speed | memory       |
+|:----------------------:|:----------------------:|:------------------------:|:----------------------:|
+| ❌                   | ❌                    | 1.05 iters/sec             | 18G|
+| ❌                   | ✔                     |  0.93 steps/sec | 9G     |
+| ✔                   | ❌                    | 1.8 iters/sec             | 18G|
 
 
 
