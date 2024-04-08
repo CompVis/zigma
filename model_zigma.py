@@ -233,17 +233,18 @@ class TimestepEmbedder(nn.Module):
     Embeds scalar timesteps into vector representations.
     """
 
-    def __init__(self, hidden_size, frequency_embedding_size=256):
+    def __init__(self, hidden_size, dtype, frequency_embedding_size=256):
         super().__init__()
         self.mlp = nn.Sequential(
             nn.Linear(frequency_embedding_size, hidden_size, bias=True),
             nn.SiLU(),
             nn.Linear(hidden_size, hidden_size, bias=True),
         )
+        self.dtype = dtype
         self.frequency_embedding_size = frequency_embedding_size
 
     @staticmethod
-    def timestep_embedding(t, dim, max_period=10000):
+    def timestep_embedding(t, dim, dtype, max_period=10000):
         """
         Create sinusoidal timestep embeddings.
         :param t: a 1-D Tensor of N indices, one per batch element.
@@ -255,9 +256,7 @@ class TimestepEmbedder(nn.Module):
         # https://github.com/openai/glide-text2im/blob/main/glide_text2im/nn.py
         half = dim // 2
         freqs = torch.exp(
-            -math.log(max_period)
-            * torch.arange(start=0, end=half, dtype=torch.float32)
-            / half
+            -math.log(max_period) * torch.arange(start=0, end=half, dtype=dtype) / half
         ).to(device=t.device)
         args = t[:, None].float() * freqs[None]
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
@@ -268,8 +267,10 @@ class TimestepEmbedder(nn.Module):
         return embedding
 
     def forward(self, t):
-        t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
-        t_emb = self.mlp(t_freq)
+        t_freq = self.timestep_embedding(
+            t, self.frequency_embedding_size, dtype=self.dtype
+        )
+        t_emb = self.mlp(t_freq.to(dtype=self.dtype))
         return t_emb
 
 
@@ -564,8 +565,11 @@ class ZigMa(nn.Module):
         initializer_cfg=None,
         scan_type="v2",
         video_frames=0,
+        tpe=False,  # apply temporal positional encoding for video-related task
         device="cuda",
-        use_pe=False,
+        use_pe=0,
+        m_init=True,
+        use_checkpoint=False,
         dtype=torch.float32,
     ):
         # assert num_classes == -1, "num_classes should be -1"
@@ -577,14 +581,24 @@ class ZigMa(nn.Module):
         self.out_channels = in_channels
         self.patch_size = patch_size
         self.embed_dim = embed_dim
+        self.tpe = tpe
 
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
         self.video_frames = video_frames
         self.use_pe = use_pe
-        print("use_pe", use_pe)
         num_patches = (img_dim // patch_size) ** 2
-        print("num_patches", num_patches)
+        self.use_checkpoint = use_checkpoint
+        print(
+            "use_checkpoint",
+            use_checkpoint,
+            "use_pe",
+            use_pe,
+            "use tpe",
+            tpe,
+            "num_patches",
+            num_patches,
+        )
 
         if video_frames == 0:
             self.x_embedder = (
@@ -603,7 +617,9 @@ class ZigMa(nn.Module):
                 .to(dtype)
             )
 
-        self.t_embedder = TimestepEmbedder(self.embed_dim).to(device).to(dtype)
+        self.t_embedder = (
+            TimestepEmbedder(self.embed_dim, dtype=dtype).to(device).to(dtype)
+        )
 
         if video_frames == 0:
             num_patches_4pe = num_patches
@@ -621,10 +637,23 @@ class ZigMa(nn.Module):
             self.pos_embed = nn.Parameter(
                 torch.zeros(1, num_patches_4pe, embed_dim, device=device, dtype=dtype)
             )
+        elif self.use_pe == 3:  # every layer has it's own PE
+            self.pos_embed_list = [
+                nn.Parameter(
+                    torch.zeros(
+                        1, num_patches_4pe, embed_dim, device=device, dtype=dtype
+                    )
+                )
+            ] * depth
         elif self.use_pe == 0:
             pass
         else:
             raise ValueError("use_pe should be 0, 1 or 2")
+
+        if self.tpe:
+            self.temporal_pos_embedding = nn.Parameter(
+                torch.zeros(1, video_frames, embed_dim, device=device, dtype=dtype)
+            )
 
         self.n_layer = depth
 
@@ -783,11 +812,9 @@ class ZigMa(nn.Module):
             embed_dim, eps=norm_epsilon, **factory_kwargs
         )
 
-        if True:  # critical for performance
-            self.initialize_weights()
-            # original init
-            # self.apply(segm_init_weights)
-            # mamba init
+        self.initialize_weights()
+        self.m_init = m_init
+        if m_init:
             self.apply(
                 partial(
                     _init_weights,
@@ -795,6 +822,7 @@ class ZigMa(nn.Module):
                     **(initializer_cfg if initializer_cfg is not None else {}),
                 )
             )
+        print("m_init", m_init)
 
     def initialize_weights(self):
 
@@ -860,6 +888,13 @@ class ZigMa(nn.Module):
         imgs = x.reshape(shape=(x.shape[0], video_frames, c, h * p, h * p))
         return imgs
 
+    def ckpt_wrapper(self, module):
+        def ckpt_forward(*inputs):
+            outputs = module(*inputs)
+            return outputs
+
+        return ckpt_forward
+
     def forward(
         self,
         hidden_states,
@@ -867,15 +902,18 @@ class ZigMa(nn.Module):
         y=None,
     ):
         """
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
+        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images),
+
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
         hidden_states = self.x_embedder(
             hidden_states
-        )  # (N, T, D), where T = H * W / patch_size ** 2
+        )  # (N, T, D), where T = H * W / patch_size ** 2, if video_frames>0, T = H * W * video_frames / patch_size ** 2
+        _B, _T, _D = hidden_states.shape
 
-        t = self.t_embedder(t * 1000)  # (N, D)
+        t = (t * 1000.0).to(hidden_states)
+        t = self.t_embedder(t)  # (N, D)
         if self.has_text:
             # y = self.y_embedder(y, self.training)  # (B, N, D)
             y = self.y_embedder(y)  # (B, N, D)
@@ -885,14 +923,28 @@ class ZigMa(nn.Module):
         else:
             c = t
 
-        if self.use_pe > 0:
+        if self.use_pe == 1 or self.use_pe == 2:
             hidden_states = hidden_states + self.pos_embed
+        if self.video_frames > 0 and self.tpe:
+            # temporal pos
+            hidden_states = rearrange(
+                hidden_states, "b (t l) c -> (b l) t c", t=self.video_frames
+            )
+            hidden_states = hidden_states + self.temporal_pos_embedding
+            hidden_states = rearrange(hidden_states, "(b l) t c -> b (t l) c", b=_B)
 
         residual = None
-        for block in self.blocks:
-            hidden_states, residual = block(
-                hidden_states, residual=residual, c=c, text=y
-            )  # (N, T, D)
+        for layer_idx, block in enumerate(self.blocks):
+            if self.use_pe == 3:
+                hidden_states = hidden_states + self.pos_embed_list[layer_idx]
+            if self.use_checkpoint:
+                hidden_states, residual = torch.utils.checkpoint.checkpoint(
+                    self.ckpt_wrapper(block), hidden_states, residual, c, y
+                )
+            else:
+                hidden_states, residual = block(
+                    hidden_states, residual=residual, c=c, text=y
+                )  # (N, T, D)
 
         ##### finished the Mamba blocks, here we apply the last Normalization layer
         if not self.fused_add_norm:
@@ -1073,13 +1125,13 @@ def zigma_h_4(**kwargs):
 
 
 if __name__ == "__main__":
-    if True:
+    if False:
         img_dim = 32
         in_channels = 3
         model = ZigMa(
             in_channels=in_channels,
-            embed_dim=640,
-            depth=18,
+            embed_dim=768,
+            depth=24,
             img_dim=img_dim,
             patch_size=1,
             has_text=True,
@@ -1089,10 +1141,65 @@ if __name__ == "__main__":
             scan_type="randomN8",
             use_pe=2,
         )
-
         x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
         t = torch.rand(10).to("cuda")
         _context = torch.rand(10, 77, 768).to("cuda")
+        o = model(x, t, y=_context)
+        _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Param count: {_param_count}")
+        print(o.shape)
+        # print(model)
+        print(model.final_layer.linear.weight.dtype)
+    elif True:
+        img_dim = 32
+        in_channels = 3
+        model = ZigMa(
+            in_channels=in_channels,
+            embed_dim=512,
+            depth=54,
+            img_dim=img_dim,
+            patch_size=1,
+            has_text=False,
+            d_context=768,
+            n_context_token=77,
+            device="cuda",
+            scan_type="randomN8",
+            use_checkpoint=True,
+            use_pe=2,
+        )
+        x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
+        t = torch.rand(10).to("cuda")
+        _context = torch.rand(10, 77, 768).to("cuda")
+        o = model(x, t)
+        _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Param count: {_param_count}")
+        print(o.shape)
+        # print(model)
+        print(model.final_layer.linear.weight.dtype)
+    else:
+        img_dim = 32
+        in_channels = 3
+        video_frames = 8
+        bs = 2
+        model = ZigMa(
+            in_channels=in_channels,
+            embed_dim=640,
+            depth=18,
+            img_dim=img_dim,
+            patch_size=1,
+            has_text=True,
+            d_context=768,
+            n_context_token=77,
+            video_frames=video_frames,
+            tpe=True,
+            device="cuda",
+            scan_type="video_sst",
+            use_pe=3,
+            m_init=False,
+        )
+        x = torch.rand(bs, video_frames, in_channels, img_dim, img_dim).to("cuda")
+        t = torch.rand(bs).to("cuda")
+        _context = torch.rand(bs, 77, 768).to("cuda")
         o = model(x, t, y=_context)
         _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Param count: {_param_count}")
