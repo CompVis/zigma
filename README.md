@@ -144,14 +144,16 @@ The sampled images will be saved both on wandb and directory **samples/**
 
 ##  🛠️  Environment Preparation
 
-cuda==11.8,python==3.12.1, torch==2.2.0
 
+cuda==11.8,python==3.11, torch==2.2.0
+
+python=3.11 # support the torch.compile for the time being. https://github.com/pytorch/pytorch/issues/120233#issuecomment-2041472137
 ```bash
-conda create -n zigma python=3.12
+conda create -n zigma python=3.11
 conda activate zigma
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
 conda install pytorch torchvision  pytorch-cuda=11.8 -c pytorch -c nvidia
-pip install  torchdiffeq  matplotlib h5py timm diffusers accelerate loguru blobfile ml_collections
+pip install  torchdiffeq  matplotlib h5py timm diffusers accelerate loguru blobfile ml_collections wandb
 pip install hydra-core opencv-python torch-fidelity webdataset einops pytorch_lightning
 pip install torchmetrics --upgrade
 pip install opencv-python causal-conv1d
