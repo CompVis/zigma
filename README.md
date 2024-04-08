@@ -39,7 +39,7 @@ Please cite our paper:
 
 
 ## :white_check_mark: Updates
-* **` April. 6th, 2024`**: Support for FP16 training.
+* **` April. 6th, 2024`**: Support for FP16 training, and checkpoint function.
 * **` April. 2th, 2024`**: Main code released.
 
 
@@ -72,6 +72,16 @@ _context = torch.rand(10, 77, 768).to("cuda")
 o = model(x, t, y=_context)
 print(o.shape)
 ```
+
+
+
+### Improved Training Performance
+In comparison to the original implementation, we implement a selection of training speed acceleration and memory saving features including gradient checkpointing
+| gradient checkpointing | training speed | memory       |
+|:----------------------:|:------------------------:|:----------------------:|
+| ❌                    | 1.05 iters/sec             | 18G|
+| ✔                     |  0.93 steps/sec | 9G     |
+
 
 
 ## 🚀  Training
