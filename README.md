@@ -39,7 +39,7 @@ Please cite our paper:
 
 
 ## :white_check_mark: Updates
-* **` April. 6th, 2024`**: Support for FP16 training, and checkpoint function.
+* **` April. 6th, 2024`**: Support for FP16 training, and checkpoint function, and torch.compile to achieve better memory utilization and speed boosting.
 * **` April. 2th, 2024`**: Main code released.
 
 
