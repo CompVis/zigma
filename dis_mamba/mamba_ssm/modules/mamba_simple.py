@@ -51,6 +51,16 @@ except ImportError:
 from torch import nn
 
 
+@torch.compile
+def forward_permutation(xz_main, _perm):
+    return xz_main[:, :, _perm].contiguous()  # [B,C,T]
+
+
+@torch.compile
+def backward_permutation(o_main, _perm_rev):
+    return o_main[:, _perm_rev, :].contiguous()  # out is [B,T,C]
+
+
 class Mamba(nn.Module):
     def __init__(
         self,
@@ -290,7 +300,7 @@ class Mamba(nn.Module):
                 _perm_rev = self.zigzag_paths_reverse[self.layer_idx]
                 _ex = self.extras
                 xz_extra, xz_main = xz[:, :, :_ex], xz[:, :, _ex:]
-                xz_main = xz_main[:, :, _perm].contiguous()  # [B,C,T]
+                xz_main = forward_permutation(xz_main, _perm)  # [B,C,T]
                 xz = torch.cat([xz_extra, xz_main], dim=2)
                 #### rearrange done
                 out = mamba_inner_fn(
@@ -310,7 +320,7 @@ class Mamba(nn.Module):
                 )
                 #### rearrange back
                 o_ext, o_main = out[:, :_ex, :], out[:, _ex:, :]
-                o_main = o_main[:, _perm_rev, :].contiguous()  # out is [B,T,C]
+                o_main = backward_permutation(o_main, _perm)  # out is [B,T,C]
                 out = torch.cat([o_ext, o_main], dim=1)
                 #### rearrange back done
             elif self.scan_type.startswith("video_"):
