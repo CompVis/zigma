@@ -139,7 +139,7 @@ hf_hub_download(
 ```bash
 CUDA_VISIBLE_DEVICES="2" accelerate launch  --num_processes 1 --num_machines 1     sample_acc.py  model=s1024_zigzag8_b2_old  use_latent=1   data=facehq_1024  ckpt_every=10_000 data.sample_fid_n=5_000 data.sample_fid_bs=4 data.sample_fid_every=10_000  data.batch_size=8  sample_mode=ODE likelihood=0  num_fid_samples=5_000 sample_debug=0  ckpt=checkpoints/faceshq1024_0060000.pt  
 ```
-The sampled images will be saved both on wandb and directory **samples/**
+The sampled images will be saved both on wandb (disable with `use_wandb=False`) and directory **samples/**
 
 
 ##  🛠️  Environment Preparation

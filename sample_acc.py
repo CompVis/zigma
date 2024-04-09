@@ -319,7 +319,7 @@ def main(args):
         device="cuda"
     )
 
-    if rank == 0:
+    if args.use_wandb and rank == 0:
         print(wandb_desc)
 
     for bs_index in pbar:
@@ -457,7 +457,7 @@ def main(args):
     print(f"FID: {_fid}")
     print(_metric_result)
     _metric_result = {f"eval/{k}": v for k, v in _metric_result.items()}
-    if rank == 0:
+    if args.use_wandb and rank == 0:
         wandb.log(_metric_result)
 
     accelerator.wait_for_everyone()

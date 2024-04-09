@@ -3,7 +3,7 @@ video_metrics/fvd/videogpt/i3d_pretrained_400.pt
 outputs/
 *.pyc
 __pycache__
-wandb
+/wandb
 checkpoints
 samples/
 example_2d.png
