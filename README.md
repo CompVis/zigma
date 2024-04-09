@@ -129,7 +129,7 @@ You can directly download the model in this repository. You also can download th
 from huggingface_hub import hf_hub_download
 
 hf_hub_download(
-        repo_id="taohu/zigma_faceshq1024",
+        repo_id="taohu/zigma",
         filename="0060000.pt",
         local_dir="./checkpoints",
     )
