@@ -83,6 +83,8 @@ In comparison to the original implementation, we implement a selection of traini
 | ❌                   | ✔                     |  0.93 steps/sec | 9G     |
 | ✔                   | ❌                    | 1.8 iters/sec             | 18G|
 
+torch.compiles is for indexing operation: [here](https://github.com/CompVis/zigma/blob/1e78944ebce400d34a12efd4baba1daad0fae9f3/dis_mamba/mamba_ssm/modules/mamba_simple.py#L55) and [here](https://github.com/CompVis/zigma/blob/1e78944ebce400d34a12efd4baba1daad0fae9f3/dis_mamba/mamba_ssm/modules/mamba_simple.py#L60)
+
 
 
 ## 🚀  Training
