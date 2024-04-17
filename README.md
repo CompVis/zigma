@@ -147,7 +147,7 @@ The sampled images will be saved both on wandb (disable with `use_wandb=False`) 
 ##  🛠️  Environment Preparation
 
 
-cuda==11.8,python==3.11, torch==2.2.0, gcc==11.3
+cuda==11.8,python==3.11, torch==2.2.0, gcc==11.3(for SSM enviroment)
 
 python=3.11 # support the torch.compile for the time being. https://github.com/pytorch/pytorch/issues/120233#issuecomment-2041472137
 ```bash
