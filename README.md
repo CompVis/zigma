@@ -21,6 +21,8 @@ This repository represents the official implementation of the paper titled "ZigM
 
 We present ZigMa, a scanning scheme that follows a zigzag pattern, considering both spatial continuity and parameter efficiency. We further adapt this scheme to video, separating the reasoning between spatial and temporal dimensions, thus achieving efficient parameter utilization. Our design allows for greater incorporation of inductive bias for non-1D data and improves parameter efficiency in diffusion models.
 
+
+![landscape][doc/landscape_0.png]
 ![teaser](doc/teaser_3col.png)
 
 
