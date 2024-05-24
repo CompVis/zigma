@@ -142,7 +142,7 @@ hf_hub_download(
         local_dir="./checkpoints",
     )
 ```
-
+[huggingface model repo](https://huggingface.co/taohu/zigma)
 
 |Dataset | Checkingpoint|
 |---|---|
