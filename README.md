@@ -137,8 +137,8 @@ hf_hub_download(
     )
 ```
 
-```
-|dataset | checkingpoint|
+
+|Dataset | Checkingpoint|
 |---|---|
 |faceshq1024.pt|faceshq1024_0090000.pt|
 |landscape1024|landscape1024_0210000.pt|
