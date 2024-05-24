@@ -1,0 +1,36 @@
+name: landscapehq_1024
+
+train_steps: 400_000
+sample_vis_n: 1
+video_frames: 0
+
+batch_size: 20
+image_size: 1024
+num_classes: -1
+
+sample_fid_n: 5_000
+sample_fid_every: 10_000
+sample_fid_bs: 1
+
+
+
+
+tar_base: ./data/lhq_shards #/export/storage/facehq_sharded
+val_batch_size: 8
+num_workers: 1
+val_num_workers: 3 # this has to match #shards % (#gpu * #workers) == 0
+multinode: True 
+
+
+train:
+  shards: 'train-{000000..000069}.tar'
+  image_key: image.png
+  rename:
+    image: image.png
+    latent: latent_hr.npy
+validation:
+  shards: 'test-{000000..000069}.tar'
+  image_key: image.png
+  rename:
+    image: image.png
+    latent: latent_hr.npy
