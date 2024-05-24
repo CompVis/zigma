@@ -29,10 +29,6 @@ import accelerate
 import wandb
 from diffusers import StableDiffusionPipeline
 
-"""
-CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch  --num_processes 4 --num_machines 1 --multi_gpu --mixed_precision fp16  sample_acc.py model=dis_zigzagall_b1_clip use_latent=1 data=celebamm256 sample_mode=ODE likelihood=0 ckpt=outputs/dis_zigzagAll_b1_clip_celebamm256_bs12/2024-03-01_02-26-42/checkpoints/0070000.pt num_fid_samples=10000 sample_debug=0
-
-"""
 
 
 @hydra.main(config_path="config", config_name="default", version_base=None)
@@ -64,7 +60,7 @@ def main(args):
     print(
         f"Starting rank={rank}, world_size={accelerator.state.num_processes}, device={device}."
     )
-    is_multiprocess = True if accelerator.state.num_processes > 1 else False
+    
 
     assert args.ckpt is not None, "Must specify a checkpoint to sample from"
     model, in_channels, input_size = get_model(args, device)
@@ -80,14 +76,7 @@ def main(args):
         requires_grad(model, False)
         if rank == 0:
             print(f"Loaded checkpoint from {args.ckpt}")
-    elif False:
-        ema_model.load_state_dict(state_dict["ema"])
-        ema_model = ema_model.to(device)
-        opt.load_state_dict(state_dict["opt"])
-        args = state_dict["args"]
-        train_steps = state_dict["train_steps"]
-        print(f"Loaded checkpoint from {ckpt_path}, train_steps={train_steps}")
-        requires_grad(ema_model, False)
+    
 
     model.eval()  # important!
     if is_video(args):
@@ -95,7 +84,7 @@ def main(args):
         print("using videos metrics")
     else:
         _metric = MyMetric(
-            choices=["fid", "is", "kid", "prdc", "fdd", "sfid"],
+            choices=["fid",],
             device=device,
         )
         print("using image metrics")
@@ -144,7 +133,8 @@ def main(args):
                 else:
                     raise NotImplementedError("current dataset doesnt have captions")
 
-    cap_dg = get_cap_generator()
+    if has_text(args):
+        cap_dg = get_cap_generator()
 
     transport = create_transport(
         args.train.path_type,
@@ -188,19 +178,20 @@ def main(args):
         if has_text(args):
             image_model_id = "runwayml/stable-diffusion-v1-5"
             pipe = StableDiffusionPipeline.from_pretrained(
-                image_model_id, local_files_only=True
+                image_model_id, local_files_only=False
             )
             vae = pipe.vae.to("cuda")
             vae.eval()
+            print("Loaded VAE from RunwayML",image_model_id)
         else:
             vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(
                 device
             )
             vae.eval()
+            print(f"Loaded VAE from stabilityai/sd-vae-ft-{args.vae}")
     assert args.cfg_scale >= 1.0, "In almost all cases, cfg_scale be >= 1.0"
 
     # Create folder to save samples:
-    model_string_name = args.model.name.replace("/", "-")
     ckpt_string_name = (
         os.path.basename(args.ckpt).replace(".pt", "") if args.ckpt else "pretrained"
     )
@@ -319,7 +310,7 @@ def main(args):
         device="cuda"
     )
 
-    if args.use_wandb and rank == 0:
+    if rank == 0:
         print(wandb_desc)
 
     for bs_index in pbar:
@@ -457,7 +448,7 @@ def main(args):
     print(f"FID: {_fid}")
     print(_metric_result)
     _metric_result = {f"eval/{k}": v for k, v in _metric_result.items()}
-    if args.use_wandb and rank == 0:
+    if rank == 0:
         wandb.log(_metric_result)
 
     accelerator.wait_for_everyone()

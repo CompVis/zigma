@@ -77,11 +77,11 @@ print(o.shape)
 
 ### Improved Training Performance
 In comparison to the original implementation, we implement a selection of training speed acceleration and memory saving features including gradient checkpointing
-|torch.compile| gradient checkpointing | training speed | memory       |
-|:----------------------:|:----------------------:|:------------------------:|:----------------------:|
-| ❌                   | ❌                    | 1.05 iters/sec             | 18G|
-| ❌                   | ✔                     |  0.93 steps/sec | 9G     |
-| ✔                   | ❌                    | 1.8 iters/sec             | 18G|
+| torch.compile | gradient checkpointing | training speed | memory |
+| :-----------: | :--------------------: | :------------: | :----: |
+|       ❌       |           ❌            | 1.05 iters/sec |  18G   |
+|       ❌       |           ✔            | 0.93 steps/sec |   9G   |
+|       ✔       |           ❌            | 1.8 iters/sec  |  18G   |
 
 torch.compiles is for indexing operation: [here](https://github.com/CompVis/zigma/blob/1e78944ebce400d34a12efd4baba1daad0fae9f3/dis_mamba/mamba_ssm/modules/mamba_simple.py#L55) and [here](https://github.com/CompVis/zigma/blob/1e78944ebce400d34a12efd4baba1daad0fae9f3/dis_mamba/mamba_ssm/modules/mamba_simple.py#L60)
 
@@ -132,10 +132,20 @@ from huggingface_hub import hf_hub_download
 
 hf_hub_download(
         repo_id="taohu/zigma",
-        filename="faceshq1024_0060000.pt",
+        filename="faceshq1024_0090000.pt",
         local_dir="./checkpoints",
     )
 ```
+
+```
+|dataset | checkingpoint|
+|---|---|
+|faceshq1024.pt|faceshq1024_0090000.pt|
+|landscape1024|landscape1024_0210000.pt|
+
+
+
+
 
 1GPU sampling 
 ```bash

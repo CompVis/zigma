@@ -9,6 +9,7 @@
 # MAE: https://github.com/facebookresearch/mae/blob/main/models_mae.py
 # --------------------------------------------------------
 
+import copy
 import torch
 import torch.nn as nn
 import numpy as np
@@ -568,6 +569,7 @@ class ZigMa(nn.Module):
         tpe=False,  # apply temporal positional encoding for video-related task
         device="cuda",
         use_pe=0,
+        use_jit=True,
         m_init=True,
         use_checkpoint=False,
         dtype=torch.float32,
@@ -598,6 +600,8 @@ class ZigMa(nn.Module):
             tpe,
             "num_patches",
             num_patches,
+            "use_jit",
+            use_jit,
         )
 
         if video_frames == 0:
@@ -662,33 +666,34 @@ class ZigMa(nn.Module):
         print("has_text", has_text)
         if has_text:
             self.y_embedder = nn.Linear(d_context, embed_dim).to(device).to(dtype)
+            print("has_text=", num_classes)
         elif num_classes > 0:
             self.y_embedder = (
                 LabelEmbedder(num_classes, hidden_size=embed_dim, dropout_prob=0.0)
                 .to(device)
                 .to(dtype)
             )
+            print("num_classes=", num_classes)
 
-        # TODO: release this comment
         dpr = [
             x.item() for x in torch.linspace(0, drop_path_rate, self.n_layer)
         ]  # stochastic depth decay rule
-        # import ipdb;ipdb.set_trace()
         inter_dpr = [0.0] + dpr
         self.drop_path = (
             DropPath(drop_path_rate) if drop_path_rate > 0.0 else nn.Identity()
         )
 
         self.extras = 0
-        block_kwargs = {}
+        block_kwargs = {"use_jit": use_jit}
         print("scan_type", scan_type)
         patch_side_len = int(math.sqrt(num_patches))
         if (
             scan_type.startswith("zigzagN")
             or scan_type.startswith("hilbertN")
             or scan_type.startswith("randomN")
+            or scan_type.startswith("parallelN")
         ):
-            if scan_type.startswith("zigzagN"):
+            if scan_type.startswith("zigzagN") or scan_type.startswith("parallelN"):
                 _zz_paths = zigzag_path(N=patch_side_len)
                 if scan_type.startswith("zigzagN"):
                     zigzag_num = int(scan_type.replace("zigzagN", ""))
@@ -696,6 +701,9 @@ class ZigMa(nn.Module):
                     assert (
                         len(zz_paths) == zigzag_num
                     ), f"{len(zz_paths)} != {zigzag_num}"
+                elif scan_type.startswith("parallelN"):
+                    zz_paths = _zz_paths[:8]
+
                 else:
                     raise ValueError("scan_type should be xx")
             elif scan_type.startswith("hilbertN"):
@@ -716,8 +724,9 @@ class ZigMa(nn.Module):
                     np.random.shuffle(_tmp)
                     print(_tmp)
                     zz_paths.append(_tmp)
+
             else:
-                raise ValueError("scan_type doenst match")
+                raise ValueError(f"scan_type {scan_type} doenst match")
             print("zigzag_num", len(zz_paths))
             #############
             zz_paths_rev = [reverse_permut_np(_) for _ in zz_paths]
@@ -732,9 +741,11 @@ class ZigMa(nn.Module):
             block_kwargs["zigzag_paths_reverse"] = zz_paths_rev
             block_kwargs["extras"] = self.extras
             print("zigzag_paths length", len(zz_paths))
-        elif scan_type.startswith("video_"):
+            for iii, _ in enumerate(zz_paths):
+                print(f"zigzag_paths {iii}", _[:20])
+        elif scan_type.startswith("zzvideo_"):
             st_order = list(
-                scan_type.replace("video_", "")
+                scan_type.replace("zzvideo_", "")
             )  # if st, then ststst; if sst then sstsstsstsst
             assert len(set(st_order)) == 2
             st_order = st_order * depth
@@ -777,6 +788,8 @@ class ZigMa(nn.Module):
             block_kwargs["video_frames"] = video_frames
             block_kwargs["st_order"] = st_order
             print("zigzag_paths length", len(zz_paths))
+        elif scan_type == "v2":
+            pass  # no zigzag
         else:
             raise ValueError("scan_type doesn't match")
 
@@ -967,7 +980,7 @@ class ZigMa(nn.Module):
                 prenorm=False,
                 residual_in_fp32=self.residual_in_fp32,
             )
-        ##hidden_states = self.final_layer(hidden_states, c=c)
+
         hidden_states = self.final_layer(hidden_states)
         if self.video_frames > 0:
             hidden_states = self.unpatchify_video(hidden_states, self.video_frames)
@@ -1124,6 +1137,80 @@ def zigma_h_4(**kwargs):
     return model
 
 
+def flops_selective_scan_fn(
+    B=1,
+    L=256,
+    D=768,
+    N=16,
+    with_D=True,
+    with_Z=False,
+    with_Group=True,
+    with_complex=False,
+):
+    """
+    u: r(B D L)
+    delta: r(B D L)
+    A: r(D N)
+    B: r(B N L)
+    C: r(B N L)
+    D: r(D)
+    z: r(B D L)
+    delta_bias: r(D), fp32
+
+    ignores:
+        [.float(), +, .softplus, .shape, new_zeros, repeat, stack, to(dtype), silu]
+    """
+    assert not with_complex
+    # https://github.com/state-spaces/mamba/issues/110
+    flops = 9 * B * L * D * N
+    if with_D:
+        flops += B * D * L
+    if with_Z:
+        flops += B * D * L
+    return flops
+
+
+def selective_scan_flop_jit(inputs, outputs):
+    # print_jit_input_names(inputs)
+    B, D, L = inputs[0].type().sizes()
+    N = inputs[2].type().sizes()[1]
+    flops = flops_selective_scan_fn(
+        B=B, L=L, D=D, N=N, with_D=True, with_Z=False, with_Group=True
+    )
+    return flops
+
+
+def flops(model, shape=(3, 32, 32)):
+    from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count, parameter_count
+
+    # shape = self.__input_shape__[1:]
+    supported_ops = {
+        "aten::silu": None,  # as relu is in _IGNORED_OPS
+        "aten::neg": None,  # as relu is in _IGNORED_OPS
+        "aten::exp": None,  # as relu is in _IGNORED_OPS
+        "aten::flip": None,  # as permute is in _IGNORED_OPS
+        # "prim::PythonOp.CrossScan": None,
+        # "prim::PythonOp.CrossMerge": None,
+        "prim::PythonOp.SelectiveScanFn": partial(
+            selective_scan_flop_jit, flops_fn=flops_selective_scan_fn
+        ),
+    }
+
+    model = copy.deepcopy(model)
+    model.cuda().eval()
+
+    input = torch.randn((1, *shape), device=next(model.parameters()).device)
+    timestep = torch.rand((1), device=next(model.parameters()).device)
+    params = parameter_count(model)[""]
+    Gflops, unsupported = flop_count(
+        model=model, inputs=(input, timestep), supported_ops=supported_ops
+    )
+
+    del model, input
+    print(f"params {params} GFLOPs {sum(Gflops.values())}")
+    return sum(Gflops.values()) * 1e9
+
+
 if __name__ == "__main__":
     if False:
         img_dim = 32
@@ -1150,7 +1237,33 @@ if __name__ == "__main__":
         print(o.shape)
         # print(model)
         print(model.final_layer.linear.weight.dtype)
-    elif True:
+    elif True:  # for conditional training
+        img_dim = 32
+        in_channels = 3
+        model = ZigMa(
+            in_channels=in_channels,
+            embed_dim=768,
+            depth=24,
+            img_dim=img_dim,
+            patch_size=1,
+            has_text=False,
+            d_context=768,
+            n_context_token=77,
+            device="cuda",
+            scan_type="v2",
+            num_classes=1001,
+            use_pe=2,
+        )
+        x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
+        t = torch.rand(10).to("cuda")
+        _context = torch.randint(0, 1001, (10,)).to("cuda")
+        o = model(x, t, y=_context)
+        _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Param count: {_param_count}")
+        print(o.shape)
+        # print(model)
+        print(model.final_layer.linear.weight.dtype)
+    elif True:  # for calculating FLOPS
         img_dim = 32
         in_channels = 3
         model = ZigMa(
@@ -1164,9 +1277,11 @@ if __name__ == "__main__":
             n_context_token=77,
             device="cuda",
             scan_type="randomN8",
-            use_checkpoint=True,
+            use_checkpoint=False,
             use_pe=2,
+            use_jit=False,
         )
+        flops(model, shape=(in_channels, img_dim, img_dim))
         x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
         t = torch.rand(10).to("cuda")
         _context = torch.rand(10, 77, 768).to("cuda")
@@ -1175,7 +1290,6 @@ if __name__ == "__main__":
         print(f"Param count: {_param_count}")
         print(o.shape)
         # print(model)
-        print(model.final_layer.linear.weight.dtype)
     else:
         img_dim = 32
         in_channels = 3
@@ -1193,7 +1307,7 @@ if __name__ == "__main__":
             video_frames=video_frames,
             tpe=True,
             device="cuda",
-            scan_type="video_sst",
+            scan_type="zzvideo_sst",
             use_pe=3,
             m_init=False,
         )

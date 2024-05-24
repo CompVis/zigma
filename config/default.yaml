@@ -11,6 +11,8 @@ defaults:
 
 
 
+mixed_precision: null #fp8, fp16, fp32, no
+
 ckpt: null  
 
 global_seed: 0
@@ -24,10 +26,10 @@ max_grad_norm: 2.0
 use_wandb: true
 note: note   
 timestamp: 
+
 ema_rate: 0.9999
 is_latent: true 
 use_latent: false
-
 
 
 sample_mode: null #ODE or SDE

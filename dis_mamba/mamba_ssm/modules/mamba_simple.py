@@ -51,12 +51,12 @@ except ImportError:
 from torch import nn
 
 
-@torch.compile
+# @torch.compile
 def forward_permutation(xz_main, _perm):
     return xz_main[:, :, _perm].contiguous()  # [B,C,T]
 
 
-@torch.compile
+# @torch.compile
 def backward_permutation(o_main, _perm_rev):
     return o_main[:, _perm_rev, :].contiguous()  # out is [B,T,C]
 
@@ -113,6 +113,7 @@ class Mamba(nn.Module):
         self.video_frames = kwargs.get("video_frames", None)
         self.st_order = kwargs.get("st_order", None)
         self.extras = kwargs.get("extras", None)
+        self.use_jit = kwargs.get("use_jit", False)
 
         self.activation = "silu"
         self.act = nn.SiLU()
@@ -165,9 +166,67 @@ class Mamba(nn.Module):
             or scan_type.startswith("video_")
             or scan_type.startswith("zigzagN")
             or scan_type.startswith("hilbertN")
+            or scan_type.startswith("randomN")
+            or scan_type.startswith("parallelN")
         ), f"Invalid scan_type: {scan_type}"
 
-        if scan_type == "v2":
+        if scan_type.startswith("parallelN"):
+            self.parallel_num = int(scan_type.replace("parallelN", ""))
+            self.A_b_log_list = []
+            self.conv1d_b_list = []
+            self.x_proj_b_list = []
+            self.dt_proj_b_list = []
+            self.D_b_list = []
+
+            for _pn in range(self.parallel_num):
+                A_b = repeat(
+                    torch.arange(
+                        1, self.d_state + 1, dtype=torch.float32, device=device
+                    ),
+                    "n -> d n",
+                    d=self.d_inner,
+                ).contiguous()
+                A_b_log = torch.log(A_b)  # Keep A_b_log in fp32
+                self.A_b_log = nn.Parameter(A_b_log)
+                self.A_b_log._no_weight_decay = True
+                self.A_b_log_list.append(self.A_b_log)
+
+                self.conv1d_b = nn.Conv1d(
+                    in_channels=self.d_inner,
+                    out_channels=self.d_inner,
+                    bias=conv_bias,
+                    kernel_size=d_conv,
+                    groups=self.d_inner,
+                    padding=d_conv - 1,
+                    **factory_kwargs,
+                )
+                self.conv1d_b_list.append(self.conv1d_b)
+
+                self.x_proj_b = nn.Linear(
+                    self.d_inner,
+                    self.dt_rank + self.d_state * 2,
+                    bias=False,
+                    **factory_kwargs,
+                )
+                self.x_proj_b_list.append(self.x_proj_b)
+                self.dt_proj_b = nn.Linear(
+                    self.dt_rank, self.d_inner, bias=True, **factory_kwargs
+                )
+                self.dt_proj_b_list.append(self.dt_proj_b)
+
+                self.D_b = nn.Parameter(
+                    torch.ones(self.d_inner, device=device)
+                )  # Keep in fp32
+                self.D_b._no_weight_decay = True
+                self.D_b_list.append(self.D_b)
+
+            self.A_b_log_list = nn.ParameterList(self.A_b_log_list)
+            self.conv1d_b_list = nn.ModuleList(self.conv1d_b_list)
+            self.x_proj_b_list = nn.ModuleList(self.x_proj_b_list)
+            self.dt_proj_b_list = nn.ModuleList(self.dt_proj_b_list)
+            self.D_b_list = nn.ParameterList(self.D_b_list)
+
+        elif scan_type == "v2":
             A_b = repeat(
                 torch.arange(1, self.d_state + 1, dtype=torch.float32, device=device),
                 "n -> d n",
@@ -176,6 +235,8 @@ class Mamba(nn.Module):
             A_b_log = torch.log(A_b)  # Keep A_b_log in fp32
             self.A_b_log = nn.Parameter(A_b_log)
             self.A_b_log._no_weight_decay = True
+
+            #############################
 
             self.conv1d_b = nn.Conv1d(
                 in_channels=self.d_inner,
@@ -292,15 +353,20 @@ class Mamba(nn.Module):
                     delta_bias=self.dt_proj.bias.float(),
                     delta_softplus=True,
                 )
-            elif self.scan_type.startswith("zigzagN") or self.scan_type.startswith(
-                "hilbertN"
+            elif (
+                self.scan_type.startswith("zigzagN")
+                or self.scan_type.startswith("hilbertN")
+                or self.scan_type.startswith("randomN")
             ):
                 #### rearrange
                 _perm = self.zigzag_paths[self.layer_idx]
                 _perm_rev = self.zigzag_paths_reverse[self.layer_idx]
                 _ex = self.extras
                 xz_extra, xz_main = xz[:, :, :_ex], xz[:, :, _ex:]
-                xz_main = forward_permutation(xz_main, _perm)  # [B,C,T]
+                if self.use_jit:
+                    xz_main = forward_permutation(xz_main, _perm)
+                else:
+                    xz_main = xz_main[:, :, _perm].contiguous()  # [B,C,T]
                 xz = torch.cat([xz_extra, xz_main], dim=2)
                 #### rearrange done
                 out = mamba_inner_fn(
@@ -320,7 +386,11 @@ class Mamba(nn.Module):
                 )
                 #### rearrange back
                 o_ext, o_main = out[:, :_ex, :], out[:, _ex:, :]
-                o_main = backward_permutation(o_main, _perm)  # out is [B,T,C]
+                if self.use_jit:
+                    o_main = backward_permutation(o_main, _perm_rev)
+                else:
+                    o_main = o_main[:, _perm_rev, :].contiguous()  # out is [B,T,C]
+
                 out = torch.cat([o_ext, o_main], dim=1)
                 #### rearrange back done
             elif self.scan_type.startswith("video_"):
@@ -331,7 +401,7 @@ class Mamba(nn.Module):
                 _perm_rev = self.zigzag_paths_reverse[self.layer_idx]
                 _ex = self.extras
                 xz_main = xz[:, :, _ex:]
-                space_frames = xz_main.shape[2] // video_frames
+                wh_size = xz_main.shape[2] // video_frames
                 assert (
                     _ex == 0
                 ), "video_ only supports extra=0, and ZigMa other than Dis"
@@ -366,7 +436,7 @@ class Mamba(nn.Module):
                 if _s_or_t == "s":
                     o_main = rearrange(o_main, "(b t) k c -> b (t k) c", t=video_frames)
                 elif _s_or_t == "t":
-                    o_main = rearrange(o_main, "(b k) t c -> b (t k) c", k=space_frames)
+                    o_main = rearrange(o_main, "(b k) t c -> b (t k) c", k=wh_size)
                 else:
                     raise NotImplementedError
                 out = o_main
