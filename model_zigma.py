@@ -1212,7 +1212,7 @@ def flops(model, shape=(3, 32, 32)):
 
 
 if __name__ == "__main__":
-    if False:
+    if True:
         img_dim = 32
         in_channels = 3
         model = ZigMa(
@@ -1225,7 +1225,7 @@ if __name__ == "__main__":
             d_context=768,
             n_context_token=77,
             device="cuda",
-            scan_type="randomN8",
+            scan_type="zigzagN8",
             use_pe=2,
         )
         x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
@@ -1237,86 +1237,4 @@ if __name__ == "__main__":
         print(o.shape)
         # print(model)
         print(model.final_layer.linear.weight.dtype)
-    elif True:  # for conditional training
-        img_dim = 32
-        in_channels = 3
-        model = ZigMa(
-            in_channels=in_channels,
-            embed_dim=768,
-            depth=24,
-            img_dim=img_dim,
-            patch_size=1,
-            has_text=False,
-            d_context=768,
-            n_context_token=77,
-            device="cuda",
-            scan_type="v2",
-            num_classes=1001,
-            use_pe=2,
-        )
-        x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
-        t = torch.rand(10).to("cuda")
-        _context = torch.randint(0, 1001, (10,)).to("cuda")
-        o = model(x, t, y=_context)
-        _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"Param count: {_param_count}")
-        print(o.shape)
-        # print(model)
-        print(model.final_layer.linear.weight.dtype)
-    elif True:  # for calculating FLOPS
-        img_dim = 32
-        in_channels = 3
-        model = ZigMa(
-            in_channels=in_channels,
-            embed_dim=512,
-            depth=54,
-            img_dim=img_dim,
-            patch_size=1,
-            has_text=False,
-            d_context=768,
-            n_context_token=77,
-            device="cuda",
-            scan_type="randomN8",
-            use_checkpoint=False,
-            use_pe=2,
-            use_jit=False,
-        )
-        flops(model, shape=(in_channels, img_dim, img_dim))
-        x = torch.rand(10, in_channels, img_dim, img_dim).to("cuda")
-        t = torch.rand(10).to("cuda")
-        _context = torch.rand(10, 77, 768).to("cuda")
-        o = model(x, t)
-        _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"Param count: {_param_count}")
-        print(o.shape)
-        # print(model)
-    else:
-        img_dim = 32
-        in_channels = 3
-        video_frames = 8
-        bs = 2
-        model = ZigMa(
-            in_channels=in_channels,
-            embed_dim=640,
-            depth=18,
-            img_dim=img_dim,
-            patch_size=1,
-            has_text=True,
-            d_context=768,
-            n_context_token=77,
-            video_frames=video_frames,
-            tpe=True,
-            device="cuda",
-            scan_type="zzvideo_sst",
-            use_pe=3,
-            m_init=False,
-        )
-        x = torch.rand(bs, video_frames, in_channels, img_dim, img_dim).to("cuda")
-        t = torch.rand(bs).to("cuda")
-        _context = torch.rand(bs, 77, 768).to("cuda")
-        o = model(x, t, y=_context)
-        _param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        print(f"Param count: {_param_count}")
-        print(o.shape)
-        # print(model)
-        print(model.final_layer.linear.weight.dtype)
+    
