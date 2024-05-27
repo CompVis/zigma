@@ -144,11 +144,11 @@ hf_hub_download(
 ```
 [huggingface model repo](https://huggingface.co/taohu/zigma)
 
-|Dataset | Checkingpoint|
-|---|---|
-|faceshq1024.pt|faceshq1024_0090000.pt|
-|landscape1024|landscape1024_0210000.pt|
-|Churches256|churches256_0280000.pt|
+|Dataset | Checkingpoint|Model |data|
+|---|---|---|---|
+|faceshq1024.pt|faceshq1024_0090000.pt|model=s1024_zigzag8_b2_old|data=facehq_1024|
+|landscape1024|landscape1024_0210000.pt|model=s1024_zigzag8_b2_old|data=landscapehq_1024|
+|Churches256|churches256_0280000.pt|model=xx|data=xxx|
 
 
 
