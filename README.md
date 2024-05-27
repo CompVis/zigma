@@ -148,7 +148,7 @@ hf_hub_download(
 |---|---|---|---|
 |faceshq1024.pt|faceshq1024_0090000.pt|model=s1024_zigzag8_b2_old|data=facehq_1024|
 |landscape1024|landscape1024_0210000.pt|model=s1024_zigzag8_b2_old|data=landscapehq_1024|
-|Churches256|churches256_0280000.pt|model=xx|data=xxx|
+|Churches256|churches256_0280000.pt|model=zigzag8_b1_pe2|data=churches256|
 
 
 
