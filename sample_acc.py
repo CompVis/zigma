@@ -284,6 +284,8 @@ def main(args):
                         ].to(device)
                     elif "facehq" in str(args.data.name):
                         yield data["latent"].to(device), None
+                    elif "church" in str(args.data.name):
+                        yield data["latent"].to(device), None
                     elif "ucf101" in str(args.data.name):
                         yield data["frame_feature256"].to(device), data["cls_id"]
                     elif "celebav" in str(args.data.name):
