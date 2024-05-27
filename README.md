@@ -148,8 +148,7 @@ hf_hub_download(
 |---|---|
 |faceshq1024.pt|faceshq1024_0090000.pt|
 |landscape1024|landscape1024_0210000.pt|
-
-
+|Churches256|churches256_0280000.pt|
 
 
 
