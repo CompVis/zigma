@@ -202,6 +202,15 @@ project: YOUR_PROJECT_NAME
 
 Due to privacy issue, we cannot share the dataset here, basically, we use MM-CelebA-HQ-Dataset from [https://github.com/IIGROUP/MM-CelebA-HQ-Dataset](https://github.com/IIGROUP/MM-CelebA-HQ-Dataset), we organize into the format of [webdataset](https://webdataset.github.io/) to enable the scalable training in multi-gpu.
 
+
+Webdataset Format: 
+- image: image.jpg # ranging from [-1,1], shape should be [3,256,256]
+- latent: img_feature256.npy # latent feature for latent generation, shape should be [4,32,32]
+
+
+
+
+The dataset we use include:
 - MM-CelebA-HQ for 256 and 512 resolution training 
 - FacesHQ1024 for 1024 resolution
 - UCF101 for 16x256x256 resolution
