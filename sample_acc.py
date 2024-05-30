@@ -229,34 +229,42 @@ def main(args):
 
     sample_folder_dir = f"{args.sample_dir}/{folder_name}"
 
-    if args.use_wandb and rank == 0:
-        entity = args.wandb.entity
-        project = args.wandb.project + "_vis"
-        print(f"Logging to wandb entity={entity}, project={project},rank={rank}")
-        config_dict = OmegaConf.to_container(args, resolve=True)
-        wandb.init(
-            project=project,
-            name=folder_name,
-            config=config_dict,
-            dir=sample_folder_dir,
-            resume="allow",
-            mode="online",
-        )
-
-        wandb_project_url = (
-            f"https://wandb.ai/dpose-team/{wandb.run.project}/runs/{wandb.run.id}"
-        )
-        wandb_sync_command = f"wandb sync {sample_folder_dir}/wandb/latest-run --append"
-        wandb_desc = "\n".join(
-            [
-                "*" * 24,
-                str(config_dict),
-                folder_name,
-                wandb_project_url,
-                wandb_sync_command,
-                "*" * 24,
-            ]
-        )
+    if rank == 0:
+        if args.use_wandb:
+            entity = args.wandb.entity
+            project = args.wandb.project + "_vis"
+            print(f"Logging to wandb entity={entity}, project={project},rank={rank}")
+            config_dict = OmegaConf.to_container(args, resolve=True)
+            wandb.init(
+                project=project,
+                name=folder_name,
+                config=config_dict,
+                dir=sample_folder_dir,
+                resume="allow",
+                mode="online",
+            )
+    
+            wandb_project_url = (
+                f"https://wandb.ai/dpose-team/{wandb.run.project}/runs/{wandb.run.id}"
+            )
+            wandb_sync_command = f"wandb sync {sample_folder_dir}/wandb/latest-run --append"
+            wandb_desc = "\n".join(
+                [
+                    "*" * 24,
+                    str(config_dict),
+                    folder_name,
+                    wandb_project_url,
+                    wandb_sync_command,
+                    "*" * 24,
+                ]
+            )
+        else:
+            wandb_project_url='wandb_project_url_null'
+            wandb_sync_command='wandb_sync_command_null'
+            wandb_desc='wandb_desc_null'
+            
+            
+    
 
     if rank == 0:
         os.makedirs(sample_folder_dir, exist_ok=True)
