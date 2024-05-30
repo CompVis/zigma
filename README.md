@@ -150,7 +150,7 @@ hf_hub_download(
 |faceshq1024.pt|faceshq1024_0090000.pt|model=s1024_zigzag8_b2_old|data=facehq_1024|
 |landscape1024|landscape1024_0210000.pt|model=s1024_zigzag8_b2_old|data=landscapehq_1024|
 |Churches256|churches256_0280000.pt|model=zigzag8_b1_pe2|data=churches256|
-|Coco256|zigzagN8_b1_pe2_coco14_bs48_0400000.pt|mode=?|data=coco14|
+|Coco256|zigzagN8_b1_pe2_coco14_bs48_0400000.pt|mode=zigzag8_b1_pe2|data=coco14 (31.0) | 
 
 
 
