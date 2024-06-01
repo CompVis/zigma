@@ -187,6 +187,8 @@ pip install av    # (optional)  to use the ucf101 frame extracting
 pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers  #for FDD metrics
 ```
 
+Installing Mamba may cost a lot of effort. If you encounter problems, this [issues in Mamba](https://github.com/state-spaces/mamba/issues) may be very helpful.
+
 
 Create a file under the directory ./config/wandb/default.yaml:
 
