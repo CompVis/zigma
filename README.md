@@ -42,21 +42,21 @@ Please cite our paper:
 }
 ```
 
-
-![landscape](doc/landscape_1.png)
-![faceshq](doc/faceshq_0.png)
-![teaser](doc/teaser_3col.png)
-
-
-
-
-
 ## :white_check_mark: Updates
 *  **` June. 14th, 2024`**:  🚀🚀🚀 An extension of zigma, [Exploring Mamba-based Diffusion: Towards better
 Rotation Invariance and Scan Aggregation](doc/zigma_v2.pdf) is released on the repo.
 * **` May. 24th, 2024`**:  🚀🚀🚀 New checkpoints for FacesHQ1024, landscape1024, Churches256 datasets.
 * **` April. 6th, 2024`**: Support for FP16 training, and checkpoint function, and torch.compile to achieve better memory utilization and speed boosting.
 * **` April. 2th, 2024`**: Main code released.
+
+
+
+
+![landscape](doc/landscape_1.png)
+![faceshq](doc/faceshq_0.png)
+![teaser](doc/teaser_3col.png)
+
+
 
 
 ## Quick Demo
