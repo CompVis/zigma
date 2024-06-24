@@ -11,6 +11,7 @@ This repository represents the official implementation of the paper titled "ZigM
 [![GitHub closed issues](https://img.shields.io/github/issues-closed/CompVis/zigma?color=success&label=Issues)](https://github.com/CompVis/zigma/issues?q=is%3Aissue+is%3Aclosed) 
 [![Twitter](https://img.shields.io/badge/Twitter-🔥%2020k%2B120k%20views-b31b1b.svg?style=social&logo=twitter)](https://twitter.com/_akhaliq/status/1770668624392421512)
 [![License](https://img.shields.io/badge/License-Apache--2.0-929292)](https://www.apache.org/licenses/LICENSE-2.0)
+![visitors](https://visitor-badge.laobi.icu/badge?page_id=CompVis/zigma)
 
 [Vincent Tao Hu](http://taohu.me),
 [Stefan Andreas Baumann](https://scholar.google.de/citations?user=egzbdnoAAAAJ&hl=en),
