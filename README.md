@@ -1,4 +1,4 @@
-#  ZigMa: A DiT-style Zigzag Mamba Diffusion Model
+#  ZigMa: A DiT-style Zigzag Mamba Diffusion Model (ECCV 2024)
 
 **Arxiv**
 
