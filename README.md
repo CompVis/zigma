@@ -2,7 +2,7 @@
 
 **Arxiv**
 
-This repository represents the official implementation of the paper titled "ZigMa: A DiT-style Zigzag Mamba Diffusion Model".
+This repository represents the official implementation of the paper titled "ZigMa: A DiT-style Zigzag Mamba Diffusion Model (ECCV 2024)".
 
 [![Website](doc/badges/badge-website.svg)](https://taohu.me/zigma)
 [![Paper](https://img.shields.io/badge/arXiv-PDF-b31b1b)](https://arxiv.org/abs/2403.13802)
@@ -38,7 +38,7 @@ Please cite our paper:
 @InProceedings{hu2024zigma,
       title={ZigMa: A DiT-style Zigzag Mamba Diffusion Model},
       author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Fischer and Björn Ommer},
-      booktitle = {Arxiv},
+      booktitle = {ECCV},
       year={2024}
 }
 ```
