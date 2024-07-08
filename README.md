@@ -1,6 +1,8 @@
 #  ZigMa: A DiT-style Zigzag Mamba Diffusion Model (ECCV 2024)
 
-**Arxiv**
+**Oral Talk in ICML 2024 Workshop on Long Context Foundation Models (LCFM)**
+**ECCV 2024**
+
 
 This repository represents the official implementation of the paper titled "ZigMa: A DiT-style Zigzag Mamba Diffusion Model (ECCV 2024)".
 
