@@ -8,7 +8,7 @@ params:
     embed_dim: 768
     depth: 24 
     video_frames: ${data.video_frames}
-    scan_type: video_sst
+    scan_type: zzvideo_sst
     use_pe: 2 # 0: no positional encoding, 1: fixed positional encoding, 2: learned positional encoding
     
     
