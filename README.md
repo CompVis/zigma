@@ -32,12 +32,6 @@ We present ZigMa, a scanning scheme that follows a zigzag pattern, considering b
 Please cite our paper:
 
 ```bibtex
-@InProceedings{hu2024zigmav2,
-      title={Exploring Mamba-based Diffusion: Towards better Rotation Invariance and Scan Aggregation},
-      author={Vincent Tao Hu and Felix Krause and Ming Gui and Kim-Louis Simmoteit and Johannes S. Fischer and  Björn Ommer},
-      booktitle = {Arxiv},
-      year={2024}
-}
 @InProceedings{hu2024zigma,
       title={ZigMa: A DiT-style Zigzag Mamba Diffusion Model},
       author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Fischer and Björn Ommer},
@@ -47,8 +41,6 @@ Please cite our paper:
 ```
 
 ## :white_check_mark: Updates
-*  **` June. 14th, 2024`**:  🚀🚀🚀 An extension of zigma, [Exploring Mamba-based Diffusion: Towards better
-Rotation Invariance and Scan Aggregation](https://drive.google.com/file/d/1dbS9dgNJHySC6DE-2fcWOkGuTiMLmHtf/view?usp=sharing) is released on the repo.
 * **` May. 24th, 2024`**:  🚀🚀🚀 New checkpoints for FacesHQ1024, landscape1024, Churches256 datasets.
 * **` April. 6th, 2024`**: Support for FP16 training, and checkpoint function, and torch.compile to achieve better memory utilization and speed boosting.
 * **` April. 2th, 2024`**: Main code released.
