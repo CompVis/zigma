@@ -1,0 +1,6 @@
+@InProceedings{hu2024zigma,
+      title={ZigMa: A DiT-style Zigzag Mamba Diffusion Model},
+      author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Fischer and Björn Ommer},
+      booktitle = {ECCV},
+      year={2024}
+}
