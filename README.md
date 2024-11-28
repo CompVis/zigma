@@ -22,7 +22,7 @@ This repository represents the official implementation of the paper titled "ZigM
 [Ming Gui](https://www.linkedin.com/in/ming-gui-87b76a16b/?originalSubdomain=de),
 [Olga Grebenkova](https://www.linkedin.com/in/grebenkovao/),
 [Pingchuan Ma](https://www.linkedin.com/in/pingchuan-ma-492543156/),
-[Johannes Fischer](https://www.linkedin.com/in/js-fischer/ ),
+[Johannes Schusterbauer](https://www.linkedin.com/in/js-fischer/ ),
 [Björn Ommer](https://ommer-lab.com/people/ommer/ )
 
 We present ZigMa, a scanning scheme that follows a zigzag pattern, considering both spatial continuity and parameter efficiency. We further adapt this scheme to video, separating the reasoning between spatial and temporal dimensions, thus achieving efficient parameter utilization. Our design allows for greater incorporation of inductive bias for non-1D data and improves parameter efficiency in diffusion models.
@@ -35,7 +35,7 @@ Please cite our paper:
 ```bibtex
 @InProceedings{hu2024zigma,
       title={ZigMa: A DiT-style Zigzag Mamba Diffusion Model},
-      author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Fischer and Björn Ommer},
+      author={Vincent Tao Hu and Stefan Andreas Baumann and Ming Gui and Olga Grebenkova and Pingchuan Ma and Johannes Schusterbauer and Björn Ommer},
       booktitle = {ECCV},
       year={2024}
 }
