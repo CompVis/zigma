@@ -2,7 +2,7 @@
 
 **ECCV 2024**
 
-**Oral Talk in ICML 2024 Workshop on Long Context Foundation Models (LCFM)**
+**[Oral Talk in ICML 2024 Workshop on Long Context Foundation Models (LCFM)](https://icml.cc/virtual/2024/39058)**
 
 
 
